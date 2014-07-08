@@ -13,15 +13,15 @@ _run(@ARGV) unless caller();
 
 sub readTBX
 {
-	my $fh = shift;
-	_testXML($fh);
+	my ($fh, $entries) = @_;
+	_testXML($fh, $entries);
 }
 
 sub _run
 {
 	(@_ >= 1) or die "Usage: perl TBX.pm <input TBX file> at lib/Read/TBX.pm line 19.";
-	my $fh = shift;
-	_testXML($fh);
+	my ($fh, $entries) = @_;
+	_testXML($fh, $entries);
 }
 
 sub _handle
@@ -47,17 +47,18 @@ sub _handle
 
 sub _testXML
 {
-	my $fh = shift; 
+	my ($fh , $entries) = @_; 
 	my $originalName = $fh;
 	$originalName = "Report\\".$1 if $originalName =~ m/(.*(?=\.tbx\w*))/;
 	$fh = _handle($fh); #convert $fh into filehandle if it isn't already
 
-	_readTBXBinary($fh, $originalName)
+	_readTBXBinary($fh, $originalName, $entries);
 }
 
 sub _readTBXBinary
 {
-	my ($fh, $originalName) = @_;
+	my ($fh, $originalName, $entries) = @_;
+	$entries = 20000 if !defined $entries;
 	binmode($fh);
 	my ($capture, $martifHeaderCapture);
 	my ($extracted, $none, $offset) = 0;
@@ -85,43 +86,41 @@ sub _readTBXBinary
 		$capture = '';
 	}
 	
-	my $count = 0;
+	my $totalCount = 0;
 	my $rc = 1;
 	while ($rc > 0)
 	{
 		my ($cycles, $head) = 0;
 		my $termEntryCapture = '';
-		while( $count < 5000)
-		{
-			my $entryCount = 0;
-			$none = 0;
-			do{	
-				$cycles++;
-				$offset = 0;
-				$head = 0;
-				$rc = read($fh, my $byteCount, 1000, $offset);
-				$capture .= $byteCount;
-				$offset = $cycles*1000 + $head;
-				if ($capture =~ m!(.+?/termEntry>)!gs)
-				{
-					$entryCount++;
-					$head = length $capture;
-					my $tmpCapt = $1;
-					$termEntryCapture .= $1 if ($tmpCapt =~ m!(<termEntry.+?/termEntry>)!s);
-					
-					$capture =~ s/\Q$tmpCapt//;
-					
-					print "\r Found termEntry on cycle $cycles!";
-				}
-				if ($capture =~ m!/text>!s) { $none = 1 }
+
+		my $entryCount = 0;
+		$none = 0;
+		do{	
+			$cycles++;
+			$offset = 0;
+			$head = 0;
+			$rc = read($fh, my $byteCount, 1000, $offset);
+			$capture .= $byteCount;
+			$offset = $cycles*1000 + $head;
+			if ($capture =~ m!(.+?/termEntry>)!s)
+			{
+				$head = length $capture;
+				my $tmpCapt = $1;
+				$termEntryCapture .= $1 if ($tmpCapt =~ m!(<termEntry.+?/termEntry>)!s);
 				
-			} until ($entryCount == 5000 || $none);
-			if (!$extracted) { last; }
-			$capture = '';
-			$extracted = 0;
-		}
-		$count++;
-		if(printTemp($originalName, "termEntries", $termEntryCapture, $count))
+				$capture =~ s/\Q$tmpCapt//;
+				$entryCount++;
+				$totalCount++;
+				
+				print "\r Found termEntry on cycle $cycles!";
+				$extracted = 1 if $entryCount == $entries;
+			}
+			if ($capture =~ m!/text>!s) { $none = 1 }
+			
+		} until ($extracted || $none);
+		if (!$extracted) { last; }
+		$extracted = 0;
+		if(printTemp($originalName, "termEntries", $termEntryCapture, $totalCount, $entries))
 		{
 			print "\nPrinted a termEntryCollection\n";
 		}
@@ -130,17 +129,15 @@ sub _readTBXBinary
 
 sub printTemp
 {
-	my ($originalName, $tmpName, $tmpContent, $number) = @_;
+	my ($originalName, $tmpName, $tmpContent, $number, $entries) = @_;
 	my $fhtmp;
-	state $previous = 0;
-	$previous = 500*($number - 1) if defined $number;
-	
-	if (defined $previous && defined $number)
+
+	if ($number)
 	{
-		$number = ($previous+1)."-".(500*$number);
+		$number = ($number)."-".($entries + $number - 1);
 	}
 	
-	if (defined $number)
+	if ($number)
 	{
 		open $fhtmp, '>', $originalName.$tmpName."_".$number.".xml";
 		print $fhtmp $tmpContent;
