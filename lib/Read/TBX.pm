@@ -3,7 +3,7 @@
 package Read::TBX;
 use strict;
 use warnings;
-use XML::Simple;
+use XML::Twig;
 use open ':encoding(utf8)', ':std';
 
 our $VERSION = 0.01;
@@ -57,16 +57,25 @@ sub _readTBXBinary
 	my $fh = shift;
 	binmode($fh);
 	my $capture;
-	my $termEntryCapture;
+	my $martifHeaderCapture;
+	my $extracted = 0;
+	my $offset;
 	
-	while(read($fh, my $byteCount, 1000))
-	{	
-
-		
-	}
+	do{
+		$offset++;
+		my $rc = read($fh, my $byteCount, 1);
+		$capture .= $byteCount;
+		if ($capture =~ m!(<martifHeader.+?/martifHeader>)!s)
+		{
+			$martifHeaderCapture = $1;
+			$extracted = 1;
+		}
+	} until ($extracted);
+	
+	print $martifHeaderCapture;
 }
 
 sub _readTBXSimple
 {
-	my $fh = shift;
+
 }
