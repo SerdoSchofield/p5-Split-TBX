@@ -4,6 +4,7 @@ package Split::TBX;
 use strict;
 use warnings;
 # use feature 'state';
+use File::Temp qw(tempfile tempdir);
 use XML::Twig;
 use open ':encoding(utf8)', ':std';
 
@@ -53,7 +54,7 @@ sub split
 	my %outTypes = %$outTypes_ref;
 	
 	$textCtrl->{text_ctrl_header}->AppendText("\n");
-	$textCtrl->{text_ctrl_header}->AppendText("Searching for termEntries containing language(s): ".join (' ', @{$outTypes{'language'}})." (This may take some time depending on the file size.)\n");
+	$textCtrl->{text_ctrl_header}->AppendText("Searching for termEntries containing language(s): ".join (' ', @{$outTypes{'language'}})." \n(This may take some time depending on the file size.)\n");
 	if (_output($fh, $outType, $outTypes_ref, $fhout, $totalEntries))
 	{
 		return 1;
@@ -92,23 +93,89 @@ sub _handle
             open $handle, '<', $fh or die "Couldn't open $fh";
         }
     }
+	
+	# # open my $copy, '>', $fh.".tmp";
+	# # my $copy = new File::Temp( UNLINK => 0 );
+	# # binmode( $copy, ":utf8" );
+	# my $copy = new File::Temp( UNLINK => 1);
+	# binmode( $copy, ":utf8" );
+	
+	# my $termEntryId;
+	# my $count;
+	# my $line;
+	# my $lastPrint = 0;
+	# (!$isGUI) ? print "\nScanning for invalid characters.\n" : $textCtrl->{text_ctrl_header}->AppendText("Scanning for invalid characters.\nThis may take some time depending on file size.\n");
+	# while (<$handle>)
+	# {
+		# $line++;
+		
+		# if ($_ =~ /<termEntry/)
+		# {
+			# $termEntryId = $1 if (/(?:<termEntry\s*id\s*=\s*['\"])(.+?)(?:['\"]\s*>)/);
+			# $count++;
+			# if ($lastPrint == 0){(!$isGUI) ? print "\rScanning entry $count" : $textCtrl->{text_ctrl_OUT}->AppendText("\nScanning entry $count\n");}
+			# $lastPrint++;
+			# $lastPrint = 0 if ($lastPrint == 1000);
+		# }
+		# if (s/(&#1;|&#3;|\x{ffff}|&#4;)//g)
+		# {
+			# (!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId on line $line.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId on line $line.\nReplacing in temp file.\n");
+		# }
+		# print $copy $_;
+	# }
+	# # my $termEntryId;
+	# # my $count;
+	# # my $line;
+	# # my $lastPrint = 0;
+	# # (!$isGUI) ? print "\nScanning for invalid characters.\n" : $textCtrl->{text_ctrl_header}->AppendText("Scanning for invalid characters.\nThis may take some time depending on file size.\n");
+	# # while (<$handle>)
+	# # {
+		# # $line++;
+		
+		# # if ($_ =~ /<termEntry/)
+		# # {
+			# # $termEntryId = $1 if (/(?:<termEntry\s*id\s*=\s*['\"])(.+?)(?:['\"]\s*>)/);
+			# # $count++;
+			# # if ($lastPrint == 0){(!$isGUI) ? print "\rScanning entry $count" : $textCtrl->{text_ctrl_OUT}->AppendText("\nScanning entry $count\n");}
+			# # $lastPrint++;
+			# # $lastPrint = 0 if ($lastPrint == 1000);
+		# # }
+		# # if (s/(&#1;|&#3;|\x{ffff}|&#4;)//g)
+		# # {
+			# # (!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId on line $line.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId on line $line.\nReplacing in temp file.\n");
+		# # }
+		# # print $copy $_;
+	# # }
+	# close $handle;
+	# close $copy;
+	# open $fh, "<", $fname;
     return $handle;
 }
 
 sub _readTBXbinary
 {
-	(!$isGUI) ? print "\nParsing in Binary mode\n" : $textCtrl->{text_ctrl_header}->AppendText("\nParsing in Binary mode\n");
+	(!$isGUI) ? print "\nParsing in Binary mode\n" : $textCtrl->{text_ctrl_header}->AppendText("Parsing in Binary mode\n");
 	my ($fh, $originalName, $entries) = @_;
 	$entries = 20000 if (!defined $entries || $entries =~ /[a-z]/i);
-	binmode($fh);
+	# seek $fh, 0, 0;
+	binmode($fh, ":utf8");
+	# my $copy = new File::Temp( UNLINK => 1 );
+	# open my $copy, '>', $originalName.".tmp";
+	# binmode($copy, ':utf8');
+	
+	my $copy = new File::Temp(UNLINK => 1);
+	binmode( $copy, ":utf8" );
+	# $textCtrl->{text_ctrl_header}->AppendText($copy->filename);
 	
 	my $lastPercent = '';
 	my $size = -s $fh;
 	my $scannedBytes = 0;
 	(!$isGUI) ? print "Total Size: $size\n" : $textCtrl->{text_ctrl_header}->AppendText("Total Size: $size\n");
-	(!$isGUI) ? print "\nNow scanning file for information (this could take some time depending on file size).\n" : $textCtrl->{text_ctrl_header}->AppendText("\nNow scanning file for information (this could take some time depending on file size).\n");
+	(!$isGUI) ? print "\nNow scanning file for information (this could take some time depending on file size).\n" : $textCtrl->{text_ctrl_header}->AppendText("\nNow scanning file for information (this could take some time depending on file size).\n".
+																																						"**The window may not be interacted with while processing,\n but updates on progress are printed below**");
 # 	open OUT, ">", "errorLog.log";
 	my $termEntryCount;
+	my $termEntryId;
 	my $tigCount;
 	my $cycles;
 	my $rc = 1;
@@ -120,6 +187,11 @@ sub _readTBXbinary
 			$cycles++;
 			$rc = read($fh, my $text, 1000);
 			$progress += $rc;
+			if ($text =~ s/(&#1;|&#3;|\x{ffff}|&#4;)//g)
+			{
+				(!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n");
+			}
+			print $copy $text;
 			$content .= $text;
 		}
 		else{
@@ -127,9 +199,16 @@ sub _readTBXbinary
 			
 			foreach my $termEntry ($head =~ m!(<termEntry.+?/termEntry>)!gsi)
 			{
+				$termEntryId = $1 if ($termEntry =~ /(?:<termEntry\s*id\s*=\s*['\"])(.+?)(?:['\"]\s*>)/);
 				$termEntryCount++;
 				my $calc = ($progress / $size * 100);
 				my $percent = sprintf("%.0f", $calc);
+				
+				
+				# if ($termEntry =~ s/(&#1;|&#3;|\x{ffff}|&#4;)//g)
+				# {
+					# (!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n");
+				# }
 				
 				##keeps line from scrolling down
 				# if ($isGUI && $termEntryCount > 1)
@@ -206,8 +285,11 @@ sub _readTBXbinary
 			substr $content, 0, length $head, ''; #empty content until un-parsed point
 		}
 	}
-	
-	return ($originalName, $fh, $termEntryCount);
+	close $fh;
+	# close $copy;
+	# open $fh, '<', $originalName."tmp";
+	# binmode($copy, ":utf8");
+	return ($originalName, $copy, $termEntryCount);
 }
 
 sub _CGUI
@@ -478,7 +560,11 @@ sub _output
 	my $content = '';
 	my $printedHeader = 0;
 	my $lastPercent = '';
+	# open $fh;
+	# $textCtrl->{text_ctrl_header}->AppendText( $fh->filename);
+	# close $fh;
 	seek $fh, 0, 0;
+	# binmode($fhout, ":utf8");
 
 	$textCtrl->{text_ctrl_OUT}->Remove(0, -1) if ($isGUI);
 # 	my $size = -s $fh;
@@ -629,7 +715,7 @@ sub _output
 						termEntry => sub { 
 							my $calc = ($termEntryCount / $totalEntries * 100);
 							my $percent = sprintf("%.1f", $calc);
-							
+							# $_->print;
 							if($outType eq 'language')
 							{
 								(!$isGUI) ? print "\r                                          Printing termEntry $termEntryCount." :
@@ -665,7 +751,7 @@ sub _output
 						},
 					},
 				);
-				$termEntryTwig->safe_parse($fh) or die $@;
+				$termEntryTwig->safe_parsefile($fh) or die $@;
 # 				$string = $termEntryTwig->sprint;
 # 				$termEntryTwig->flush(\*$fhout);
 # 				$string =~ s/(?<=>)\n$//g; #get rid of last newline
@@ -676,6 +762,7 @@ sub _output
 # 	}
 # 	$content =~ s/(?<=>)\s+(?=<)|\s+(?=<)/\n/g;
 # 	print $fhout $content;
+	close $fh;
 	close $fhout;
 	return 1;
 }

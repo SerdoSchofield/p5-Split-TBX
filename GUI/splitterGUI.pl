@@ -49,9 +49,6 @@ sub new {
     $self->{_T("file")}->AppendSeparator();
     $self->{_T("exit")} = $self->{_T("file")}->Append(wxID_ANY, _T("Exit"), "");
     $self->{_T("splitter_win_menubar")}->Append($self->{_T("file")}, _T("File"));
-    $self->{_T("help")} = Wx::Menu->new();
-    $self->{_T("about")} = $self->{_T("help")}->Append(wxID_ANY, _T("About"), "");
-    $self->{_T("splitter_win_menubar")}->Append($self->{_T("help")}, _T("Help"));
     $self->SetMenuBar($self->{splitter_win_menubar});
     
 # Menu Bar end
@@ -88,6 +85,7 @@ sub __set_properties {
     $self->{combo_box_subjects}->SetSelection(0);
     $self->{label_language}->SetMinSize(Wx::Size->new(-1, -1));
     $self->{label_language}->SetFont(Wx::Font->new(10, wxMODERN, wxNORMAL, wxBOLD, 0, "Arial"));
+    $self->{list_box_languages}->SetMinSize(Wx::Size->new(200, 63));
     $self->{list_box_languages}->SetSelection(0);
     $self->{button_split}->SetMinSize(Wx::Size->new(75, 23));
     $self->{text_ctrl_header}->SetMinSize(Wx::Size->new(531, 70));
@@ -144,13 +142,13 @@ sub _exit {
     my ($self, $event) = @_;
 	# wxGlade: MyFrame::_exit <event_handler>
 	
-	exit;
+	$self->Destroy();
     $event->Skip;
     # end wxGlade
 }
 
 sub _loadFile {
-    my ( $self, $event ) = @_; 
+    my ( $self, $event ) = @_;
 	# wxGlade: MyFrame::_loadFile <event_handler>
     # Open a filedialog where a file can be opened
     my $filedlg = Wx::FileDialog->new(  $self,         # parent
@@ -165,9 +163,22 @@ sub _loadFile {
         my $filename = $filedlg->GetPath;
         # do something useful
 		
+		##Clear previous session##
 		$self->{text_ctrl_OUT}->Remove(0, -1);
+		$self->{text_ctrl_header}->Remove(0, -1);
+		$self->{text_ctrl_header}->AppendText("***Please note that the Splitter must be reopened to open a new glossary.***\n");
+		$self->{_T("new")}->Enable(0);  #disables "new" option because window cannot be properly refreshed between uses dynamically
+		# $self->{text_ctrl_header}->AppendText($filename);
+		# $self->{combo_box_subjects}->Clear();
+		# $self->{combo_box_subjects}->Append("---");
+		# $self->{combo_box_subjects}->SetValue("---");
+		
+		# $self->{list_box_languages}->Clear();  ##cannot get this to work##
+		##End Clear
+		
 		
 		($fname, $fh, $entries, $subjectList_ref, $langList_ref, $subjectFieldList_href, $langList_href) = Split::TBX->scan($filename, $self);
+		$self->{text_ctrl_header}->AppendText("\n\nScanning has completed!! Select language(s) and/or subject to split.\n");
 		
 		foreach (@{$subjectList_ref})
 		{
@@ -179,8 +190,7 @@ sub _loadFile {
 			$self->{list_box_languages}->Append("$_");
 		}
     }
-	
-	$event->Skip;
+	$event->Skip; ##this causes the file browser to open twice for some reason?
 	# end wxGlade
 }
 
@@ -248,7 +258,7 @@ sub _split {
 	open $fhout, ">", $fileName;
     if (Split::TBX->split($fh, $Type, \%outTypes, $fhout, $entries, $subjectFieldList_href, $langList_href, $self))
 	{
-		$self->{text_ctrl_header}->AppendText("\nPrinted successfully to $fileName!");
+		$self->{text_ctrl_header}->AppendText("\nPrinted successfully to:\n $fileName!");
 	}
 	close $fhout;
     $event->Skip;
@@ -280,7 +290,9 @@ sub OnInit {
 
 package main;
 
-unless(caller){
+&_run unless(caller);
+
+sub _run {
     my $local = Wx::Locale->new("English"); # replace with ??
     $local->AddCatalog("tbx_splitter"); # replace with the appropriate catalog name
 
