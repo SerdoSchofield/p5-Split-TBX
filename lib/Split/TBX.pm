@@ -35,6 +35,10 @@ sub scan
 	($fname, $fh, $entries) = _readTBXbinary($fh, $fname, $entries);
 	
 	my @subjectList = keys(%subjectFieldList);
+	foreach my $subject (@subjectList)
+	{
+		$subject =~ s!<>:\"\/|\?\*!_!g;	
+	}
 	("@subjectList" =~ /[a-z]/i) ? (@subjectList = sort @subjectList) : (@subjectList = sort { $a <=> $b }(@subjectList));
 	
 	my @langList = sort(keys(%langList));
@@ -318,6 +322,10 @@ sub _CGUI
 			my $i = 0;
 			
 			my @list = keys(%subjectFieldList);
+			foreach my $subject (@list)
+			{
+				$subject =~ s!<>:\"\/|\?\*!_!g;	
+			}
 			("@list" =~ /[a-z]/i) ? (@list = sort @list) : (@list = sort { $a <=> $b }(@list));
 			foreach (@list) { 
 				$i++;
