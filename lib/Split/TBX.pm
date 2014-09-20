@@ -191,7 +191,7 @@ sub _readTBXbinary
 			$cycles++;
 			$rc = read($fh, my $text, 1000);
 			$progress += $rc;
-			if ($text =~ s/(&#1;|&#3;|\x{ffff}|&#4;)//g)
+			if ($text =~ s/(&#\w+;|&#1;|&#3;|\x{ffff}|&#4;)//g)
 			{
 				(!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n");
 			}
