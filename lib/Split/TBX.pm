@@ -191,7 +191,7 @@ sub _readTBXbinary
 			$cycles++;
 			$rc = read($fh, my $text, 1000);
 			$progress += $rc;
-			if ($text =~ s/(&#\w+;|&#1;|&#3;|\x{ffff}|&#4;)//g)
+			if ($text =~ s/(&#\w+;|&#1;|&#3;|\x{ffff}|&#4;||||||||)//g)
 			{
 				(!$isGUI) ? print "\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n" : $textCtrl->{text_ctrl_header}->AppendText("\nFound invalid character '$1' in termEntry $termEntryId.\nReplacing in temp file.\n");
 			}
@@ -382,9 +382,9 @@ sub _CGUI
 				print "\nHow many languages would you like to split from the glossary? ";
 				$amount = <STDIN>;
 				chomp $amount;
-				if ($amount =~ /[a-z]/i)
+				if ($amount =~ /[^0-9] / || $amount eq '0' || $amount eq '') #It was accepting non-numbers and then acting wrong.
 				{
-					print "\n Only use numeric values (ex: '2').";
+					print "\n Please use a non-zero numeric value (ex: '2').";
 					next;
 				}
 				if ($amount > keys (%langList))
@@ -406,16 +406,17 @@ sub _CGUI
 					print "\n";
 				}
 			}
-			my $x = 0;
+			my $x = 1;
 			my $filename = $originalName."_language(";
 			while (1)
 			{
-				$x++;
+				
 				print "\nDesired language $x: ";
 				$in = <STDIN>;
 				chomp $in;
-				if ($in eq '-quit') {exit()}
-				if ($in eq '-list') { 
+				if ($in eq '-quit') {
+					exit()
+				} elsif ($in eq '-list') { 
 					foreach (sort(keys(%langList)))  { 
 						$i++;
 						print "$_\t"; 
@@ -425,17 +426,18 @@ sub _CGUI
 							print "\n";
 						}
 					}
-				}
-				
-				if(exists($langList{lc($in)}))
+				} elsif(exists($langList{lc($in)}))
 				{
 					if ($x == 1) {$filename .= $in}
 					else {$filename .= "-$in";}
 					push (@{$outTypes{'language'}}, lc($in));
 					last if ($x == $amount);
+					$x++;
+				} elsif (!exists($langList{lc($in)})) {
+					print "\nInvalid code. Please only use those provided ('-list' to see list again):  " ;
+					
 				}
 				
-				print "\nInvalid code. Please only use those provided ('-list' to see list again):  " if (!exists($langList{lc($in)}));
 			}
 			$filename .= ").tbx";
 			open my $fhout, ">", $filename;
@@ -496,9 +498,9 @@ sub _CGUI
 				print "\nHow many languages would you like to split from the glossary? ";
 				$amount = <STDIN>;
 				chomp $amount;
-				if ($amount =~ /[a-z]/i)
+				if ($amount =~ /[^0-9] / || $amount eq '0' || $amount eq '') #It was accepting strings of numbers with spaces and then executing with bad values.
 				{
-					print "\nOnly use numeric values (ex: '2').";
+					print "\nPlease use a non-zero numeric value (ex: '2').";
 					next;
 				}
 				if ($amount > keys (%langList))
@@ -520,16 +522,17 @@ sub _CGUI
 					print "\n";
 				}
 			}
-			my $x = 0;
+			my $x = 1;
 			my $filename = $originalName."_subject($subject)_language(";
 			while (1)
 			{
-				$x++;
+				
 				print "\nDesired language $x: ";
 				$language = <STDIN>;
 				chomp $language;
-				if ($language eq '-quit') {exit()}
-				if ($language eq '-list') { 
+				if ($language eq '-quit') {
+					exit()
+				} elsif ($language eq '-list') { 
 					foreach (sort(keys(%langList)))  { 
 						$i++;
 						print "$_\t"; 
@@ -539,16 +542,18 @@ sub _CGUI
 							print "\n";
 						}
 					}
-				}
-				if(exists($langList{lc($language)}))
+				} elsif(exists($langList{lc($language)}))
 				{
 					if ($x == 1) {$filename .= $language}
 					else {$filename .= "-$language";}
 					push (@{$outTypes{'language'}}, lc($language));
 					last if ($x == $amount);
+					$x++;
+				} elsif (!exists($langList{lc($language)})) {
+					print "\nInvalid code. Please only use those provided ('-list' to see list again):  " ;
+					
 				}
 				
-				print "\nInvalid code. Please only use those provided ('-list' to see list again):  " if (!exists($langList{lc($language)}));
 			}
 			$filename .= ").tbx";
 			open my $fhout, ">", $filename;
